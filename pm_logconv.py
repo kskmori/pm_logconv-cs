@@ -550,9 +550,8 @@ statfile = None
 class ParseConfigFile:
 	'''
 		Initialization to parse config file.
-		Open the config file. Its fd should be close in __del__().
 	'''
-	def __init__(self, config_file, config_file_sys):
+	def __init__(self):
 		self.SEC_SETTINGS = "Settings"
 		self.OPT_HA_LOG_PATH = "ha_log_path"
 		self.OPT_OUTPUT_PATH = "output_path"
@@ -571,44 +570,36 @@ class ParseConfigFile:
 		self.OPT_ACTRSC = "act_rsc"
 
 		self.fp = None
-		self.cf = ConfigParser.RawConfigParser()
+		self.cf = None
                 self.fp_sys = None
-                self.cf_sys = ConfigParser.RawConfigParser()
-		# open the config file to read.
-		if not os.path.exists(config_file):
-			pm_log.error("ParseConfigFile.__init__(): " +
-				"config file [%s] does not exist." % (config_file))
-			#__init__ should return None...
-			sys.exit(1)
-		try:
-			self.fp = open(config_file)
-			self.cf.readfp(self.fp)
-		except Exception, strerror:
-			pm_log.error("ParseConfigFile.__init__(): " +
-				"failed to read config file [%s]." % (config_file))
-			pm_log.debug("ParseConfigFile.__init__(): %s" % (strerror))
-			#__init__ should return None...
-			sys.exit(1)
-		if not os.path.exists(config_file_sys):
-			pm_log.error("ParseConfigFile.__init__(): " +
-				"config file [%s] does not exist." % (config_file_sys))
-			#__init__ should return None...
-			sys.exit(1)
-		try:
-			self.fp_sys = open(config_file_sys)
-			self.cf_sys.readfp(self.fp_sys)
-		except Exception, strerror:
-			pm_log.error("ParseConfigFile.__init__(): " +
-				"failed to read config file [%s]." % (config_file_sys))
-			pm_log.debug("ParseConfigFile.__init__(): %s" % (strerror))
-			#__init__ should return None...
-			sys.exit(1)
+                self.cf_sys = None
 
 	def __del__(self):
 		if self.fp is not None:
 			self.fp.close()
 		if self.fp_sys is not None:
 			self.fp_sys.close()
+
+	'''
+		Open the config file. Its fd should be close in __del__().
+	'''
+	def open_config_file(self, config_file):
+                fp = None
+                cf = ConfigParser.RawConfigParser()
+		# open the config file to read.
+		if not os.path.exists(config_file):
+			pm_log.error("ParseConfigFile.open_config_file(): " +
+				"config file [%s] does not exist." % (config_file))
+			sys.exit(1)
+		try:
+			fp = open(config_file)
+			cf.readfp(fp)
+		except Exception, strerror:
+			pm_log.error("ParseConfigFile.open_config_file(): " +
+				"failed to read config file [%s]." % (config_file))
+			pm_log.debug("ParseConfigFile.open_config_file(): %s" % (strerror))
+			sys.exit(1)
+                return  fp, cf
 
 	def get_optval(self, cfobj, secname, optname):
 		optval = None
@@ -633,7 +624,7 @@ class ParseConfigFile:
 		return 0   : succeeded.
 		       0 > : error occurs.
 	'''
-	def parse_basic_settings(self):
+	def parse_basic_settings(self, config_file):
 		global HA_LOGFILE
 		global OUTPUTFILE
 		global SYSLOGFORMAT
@@ -641,6 +632,9 @@ class ParseConfigFile:
 		global attrRuleList
 		global attrRules
 		global actRscList
+
+                # Open the user config file
+                self.fp, self.cf = self.open_config_file(config_file)
 
 		# Get all options in the section.
 		try:
@@ -792,7 +786,10 @@ class ParseConfigFile:
 		return 0   : succeeded.
 		       0 > : error occurs.
 	'''
-	def parse_logconv_settings(self):
+	def parse_logconv_settings(self, config_file):
+                # Open the system config file
+                self.fp_sys, self.cf_sys = self.open_config_file(config_file)
+
 		logconv_sections = self.cf_sys.sections()
 		try:
 			logconv_sections.remove(self.SEC_SETTINGS)
@@ -1022,9 +1019,9 @@ class LogConvert:
 		'''
 			Parse config file.
 		'''
-		pcfobj = ParseConfigFile(self.configfile, SYSCONFIGFILE)
+		pcfobj = ParseConfigFile()
 		# Parse pm_logconv's basic settings.
-		pcfobj.parse_basic_settings()
+		pcfobj.parse_basic_settings(self.configfile)
 
 		if pcfobj.logfacility != None:
 			pm_log.set_facility(pcfobj.logfacility)
@@ -1098,7 +1095,7 @@ class LogConvert:
 
 		if not self.stop_logconv and not self.ask_status:
 			# Parse settings for log convertion.
-			pcfobj.parse_logconv_settings()
+			pcfobj.parse_logconv_settings(SYSCONFIGFILE)
 		return True
 
 	'''
