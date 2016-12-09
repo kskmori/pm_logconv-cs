@@ -7,7 +7,7 @@ MAINTAINERCLEANFILES = Makefile.in
 logconvdir = @HA_NOARCHDATAHBDIR@/$(logconv_NAME)
 logconvcfdir = @CONFIG_DIR@
 
-SUBDIRS         = init
+SUBDIRS         = init sosreport
 
 SHAREDIR = $(logconvdir)
 SPEC = $(logconv_NAME).spec
